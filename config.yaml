@@ -1,0 +1,25 @@
+issuer: "http://localhost:8080"
+http_addr: ":8080"
+access_token_ttl: 10m
+refresh_token_ttl: 720h
+auth_code_ttl: 5m
+key_rotation_interval: 24h
+active_key_overlap: 1h
+rate_limit_authorize_rpm: 120
+rate_limit_token_rpm: 300
+clients:
+  - client_id: demo-web
+    client_secret: DEMO_SECRET_CHANGE
+    redirect_uris: ["http://localhost:3000/callback"]
+    scopes: ["openid", "profile", "email"]
+    public: false
+  - client_id: demo-spa
+    redirect_uris: ["http://localhost:5173/callback"]
+    scopes: ["openid", "profile"]
+    public: true
+users:
+  - id: u1
+    username: alice
+    email: alice@example.com
+    password: password123
+    claims: ["given_name", "family_name"]

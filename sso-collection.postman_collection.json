@@ -1,0 +1,334 @@
+{
+  "info": {
+    "name": "SSO Demo Collection",
+    "_postman_id": "0f65c5d4-0000-4b00-a100-sso-collection",
+    "description": "End-to-end OAuth2/OIDC Authorization Code + PKCE flow with refresh rotation & reuse detection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+
+    {
+      "name": "01 - Discovery",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/.well-known/openid-configuration"
+      }
+    },
+    {
+      "name": "02 - JWKS",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{base_url}}/jwks.json"
+      }
+    },
+    {
+      "name": "03 - Health",
+      "request": { "method": "GET", "url": "{{base_url}}/healthz" }
+    },
+
+    {
+      "name": "04 - Register User",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+            "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{base_url}}/register"
+      }
+    },
+
+    {
+      "name": "05 - Login (Get Session Cookie)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const sid = pm.cookies.get('sid');",
+              "if (sid) {",
+              "  pm.environment.set('sid', sid);",
+              "  console.log('Stored sid cookie ->', sid);",
+              "} else {",
+              "  console.warn('No sid cookie in response');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{base_url}}/login"
+      }
+    },
+
+    {
+      "name": "06 - Authorize (No PKCE)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let data = {};",
+              "try { data = pm.response.json(); } catch(e) {}",
+              "if (data.code) { pm.environment.set('code', data.code); }",
+              "if (data.state) { console.log('State:', data.state); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Cookie", "value": "sid={{sid}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/authorize?response_type=code&client_id={{client_id}}&redirect_uri={{redirect_uri}}&scope={{scope}}&state={{state}}",
+          "host": ["{{base_url}}"],
+          "path": ["authorize"],
+          "query": [
+            { "key": "response_type", "value": "code" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "redirect_uri", "value": "{{redirect_uri}}" },
+            { "key": "scope", "value": "{{scope}}" },
+            { "key": "state", "value": "{{state}}" }
+          ]
+        }
+      }
+    },
+
+    {
+      "name": "07 - Authorize (PKCE S256)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "function base64url(buf) {",
+              "  return CryptoJS.enc.Base64.stringify(buf).replace(/=+$/,'').replace(/\\+/g,'-').replace(/\\//g,'_');",
+              "}",
+              "if (!pm.environment.get('pkce_verifier')) {",
+              "  const random = CryptoJS.lib.WordArray.random(32);",
+              "  const verifier = base64url(random);",
+              "  const challenge = base64url(CryptoJS.SHA256(verifier));",
+              "  pm.environment.set('pkce_verifier', verifier);",
+              "  pm.environment.set('pkce_challenge', challenge);",
+              "  console.log('Generated PKCE verifier/challenge');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let data = {};",
+              "try { data = pm.response.json(); } catch(e) {}",
+              "if (data.code) { pm.environment.set('code_pkce', data.code); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Cookie", "value": "sid={{sid}}" }],
+        "url": {
+          "raw": "{{base_url}}/authorize?response_type=code&client_id={{client_id}}&redirect_uri={{redirect_uri}}&scope={{scope}}&state={{state}}&code_challenge_method=S256&code_challenge={{pkce_challenge}}",
+          "host": ["{{base_url}}"],
+          "path": ["authorize"],
+          "query": [
+            { "key": "response_type", "value": "code" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "redirect_uri", "value": "{{redirect_uri}}" },
+            { "key": "scope", "value": "{{scope}}" },
+            { "key": "state", "value": "{{state}}" },
+            { "key": "code_challenge_method", "value": "S256" },
+            { "key": "code_challenge", "value": "{{pkce_challenge}}" }
+          ]
+        }
+      }
+    },
+
+    {
+      "name": "08 - Token (Auth Code)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let data = {};",
+              "try { data = pm.response.json(); } catch(e) {}",
+              "if (data.access_token) pm.environment.set('access_token', data.access_token);",
+              "if (data.refresh_token) pm.environment.set('refresh_token', data.refresh_token);",
+              "if (data.id_token) pm.environment.set('id_token', data.id_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "authorization_code" },
+            { "key": "code", "value": "{{code}}" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "redirect_uri", "value": "{{redirect_uri}}" }
+          ]
+        },
+        "url": "{{base_url}}/token"
+      }
+    },
+
+    {
+      "name": "09 - Token (Auth Code + PKCE)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let data = {};",
+              "try { data = pm.response.json(); } catch(e) {}",
+              "if (data.access_token) pm.environment.set('access_token', data.access_token);",
+              "if (data.refresh_token) pm.environment.set('refresh_token', data.refresh_token);",
+              "if (data.id_token) pm.environment.set('id_token', data.id_token);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "authorization_code" },
+            { "key": "code", "value": "{{code_pkce}}" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "redirect_uri", "value": "{{redirect_uri}}" },
+            { "key": "code_verifier", "value": "{{pkce_verifier}}" }
+          ]
+        },
+        "url": "{{base_url}}/token"
+      }
+    },
+
+    {
+      "name": "10 - Refresh Token (Rotate)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let data = {};",
+              "try { data = pm.response.json(); } catch(e) {}",
+              "if (data.access_token) pm.environment.set('access_token', data.access_token);",
+              "if (data.refresh_token) {",
+              "  pm.environment.set('old_refresh_token', pm.environment.get('refresh_token'));",
+              "  pm.environment.set('refresh_token', data.refresh_token);",
+              "}",
+              "if (data.id_token) {",
+              "  tests['No id_token expected on refresh'] = false;",
+              "} else {",
+              "  tests['No id_token expected on refresh'] = true;",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "refresh_token" },
+            { "key": "refresh_token", "value": "{{refresh_token}}" },
+            { "key": "client_id", "value": "{{client_id}}" }
+          ]
+        },
+        "url": "{{base_url}}/token"
+      }
+    },
+
+    {
+      "name": "11 - Refresh Token (Reuse Detection - Expect Error)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "refresh_token" },
+            { "key": "refresh_token", "value": "{{old_refresh_token}}" },
+            { "key": "client_id", "value": "{{client_id}}" }
+          ]
+        },
+        "url": "{{base_url}}/token"
+      }
+    },
+
+    {
+      "name": "12 - Revoke (Refresh Token)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "token", "value": "{{refresh_token}}" }
+          ]
+        },
+        "url": "{{base_url}}/revoke"
+      }
+    },
+
+    {
+      "name": "13 - UserInfo (Placeholder)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{access_token}}" }
+        ],
+        "url": "{{base_url}}/userinfo"
+      }
+    },
+
+    {
+      "name": "14 - Invalid Grant Example",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            { "key": "grant_type", "value": "authorization_code" },
+            { "key": "code", "value": "BADCODE" },
+            { "key": "client_id", "value": "{{client_id}}" },
+            { "key": "redirect_uri", "value": "{{redirect_uri}}" }
+          ]
+        },
+        "url": "{{base_url}}/token"
+      }
+    }
+
+  ],
+  "event": [],
+  "variable": []
+}
