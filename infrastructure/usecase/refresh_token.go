@@ -8,28 +8,9 @@ import (
 	"github.com/RanguraGIT/sso/domain/entity"
 	"github.com/RanguraGIT/sso/domain/repository"
 	dservice "github.com/RanguraGIT/sso/domain/service"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 	"github.com/RanguraGIT/sso/domain/vo"
 )
-
-// RefreshTokenInput represents the input for rotating a refresh token.
-// The caller now supplies the SHA-256 hex hash of the provided opaque refresh token as RefreshTokenID.
-// The raw token itself is never persisted server side (only hashed identifier is stored / compared).
-type RefreshTokenInput struct {
-	RefreshTokenID string
-	Issuer         string
-	Audience       []string
-	AccessTTL      time.Duration
-	RefreshTTL     time.Duration
-}
-
-type RefreshTokenOutput struct {
-	AccessToken       string
-	RefreshToken      string
-	ExpiresIn         int64
-	Scope             string
-	TokenType         string
-	OldRefreshRevoked bool
-}
 
 type RefreshToken struct {
 	tokens       repository.TokenRepository
@@ -41,7 +22,7 @@ func NewRefreshToken(tokens repository.TokenRepository, clients repository.Clien
 	return &RefreshToken{tokens: tokens, clients: clients, tokenService: tokenService}
 }
 
-func (uc *RefreshToken) Execute(ctx context.Context, in RefreshTokenInput) (*RefreshTokenOutput, error) {
+func (uc *RefreshToken) Execute(ctx context.Context, in du.RefreshTokenInput) (*du.RefreshTokenOutput, error) {
 	if in.RefreshTokenID == "" {
 		return nil, errors.New("missing refresh token id")
 	}
@@ -68,6 +49,7 @@ func (uc *RefreshToken) Execute(ctx context.Context, in RefreshTokenInput) (*Ref
 	}
 
 	// Build new JWT claims (same user, scopes, audience, issuer) with new expiry
+
 	now := time.Now().UTC()
 	claims := vo.JWTClaims{
 		Subject:   meta.UserID.String(),
@@ -90,13 +72,12 @@ func (uc *RefreshToken) Execute(ctx context.Context, in RefreshTokenInput) (*Ref
 		_ = uc.tokens.Store(ctx, newMeta)
 		_ = uc.tokens.MarkRotated(ctx, meta.RefreshTokenID) // mark old as rotated
 	}
-	return &RefreshTokenOutput{
-		AccessToken:       res.AccessToken,
-		RefreshToken:      res.RefreshToken,
-		ExpiresIn:         int64(res.AccessExpiresAt.Sub(now).Seconds()),
-		Scope:             claims.Scope,
-		TokenType:         "Bearer",
-		OldRefreshRevoked: false,
+	return &du.RefreshTokenOutput{
+		AccessToken:  res.AccessToken,
+		RefreshToken: res.RefreshToken,
+		ExpiresIn:    int64(res.AccessExpiresAt.Sub(now).Seconds()),
+		Scope:        claims.Scope,
+		TokenType:    "Bearer",
 	}, nil
 }
 

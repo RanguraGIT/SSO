@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/RanguraGIT/sso/domain/repository"
-	"github.com/RanguraGIT/sso/infrastructure/usecase"
+	"github.com/RanguraGIT/sso/domain/usecase"
 	"github.com/google/uuid"
 )
 
 type AuthorizeHandler struct {
-	Start    *usecase.StartAuthorization
+	Start    usecase.StartAuthorization
 	Sessions repository.SessionRepository
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/RanguraGIT/sso/domain/entity"
 	"github.com/RanguraGIT/sso/domain/repository"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 )
 
 type StartAuthorization struct {
@@ -21,23 +22,7 @@ func NewStartAuthorization(clients repository.ClientRepository, codes repository
 	return &StartAuthorization{clients: clients, codes: codes}
 }
 
-type StartAuthInput struct {
-	ResponseType        string
-	ClientID            string
-	RedirectURI         string
-	Scope               string
-	State               string
-	CodeChallenge       string
-	CodeChallengeMethod string
-	UserID              string // In real system derived from login session
-}
-
-type StartAuthResult struct {
-	Code  string
-	State string
-}
-
-func (uc *StartAuthorization) Execute(ctx context.Context, in StartAuthInput) (*StartAuthResult, error) {
+func (uc *StartAuthorization) Execute(ctx context.Context, in du.StartAuthInput) (*du.StartAuthResult, error) {
 	if in.ResponseType != "code" {
 		return nil, errors.New("unsupported response_type")
 	}
@@ -72,7 +57,7 @@ func (uc *StartAuthorization) Execute(ctx context.Context, in StartAuthInput) (*
 	if err := uc.codes.Create(ctx, c); err != nil {
 		return nil, err
 	}
-	return &StartAuthResult{Code: code, State: in.State}, nil
+	return &du.StartAuthResult{Code: code, State: in.State}, nil
 }
 
 func generateCode() (string, error) {

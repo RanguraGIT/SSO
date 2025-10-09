@@ -10,13 +10,15 @@ import (
 	"syscall"
 	"time"
 
-	h "github.com/RanguraGIT/sso/delivery/http/handler"
 	"github.com/RanguraGIT/sso/domain/entity"
 	"github.com/RanguraGIT/sso/domain/repository"
+	dsvc "github.com/RanguraGIT/sso/domain/service"
+	du "github.com/RanguraGIT/sso/domain/usecase"
+	route "github.com/RanguraGIT/sso/infrastructure/delivery/http/route"
 	"github.com/RanguraGIT/sso/infrastructure/persistence"
 	mysqlrepo "github.com/RanguraGIT/sso/infrastructure/repository/mysql"
 	iservice "github.com/RanguraGIT/sso/infrastructure/service"
-	"github.com/RanguraGIT/sso/infrastructure/usecase"
+	iusecase "github.com/RanguraGIT/sso/infrastructure/usecase"
 	"github.com/joho/godotenv"
 )
 
@@ -58,33 +60,32 @@ func main() {
 	keyRotation := iservice.NewInMemoryKeyRotation(12 * time.Hour)
 	tokenService := iservice.NewJWTTokenService(keyRotation)
 	bcryptAuth := iservice.NewBcryptAuthService(userRepo, 12)
-	loginUC := usecase.NewUserLogin(userRepo, bcryptAuth)
-	createSessionUC := usecase.NewCreateSession(sessionRepo)
-	registerUC := usecase.NewRegisterUser(userRepo, bcryptAuth.(interface{ HashPassword(string) (string, error) }))
+	loginUC := iusecase.NewUserLogin(userRepo, bcryptAuth)
+	createSessionUC := iusecase.NewCreateSession(sessionRepo)
+	registerUC := iusecase.NewRegisterUser(userRepo, bcryptAuth.(interface{ HashPassword(string) (string, error) }))
 
 	// Seed demo client & user (IDs deterministic for demo) - in real system use proper creation flows.
 	seedDemo(userRepo, clientRepo)
 
-	issueTokenUC := usecase.NewIssueToken(clientRepo, tokenRepo, tokenService)
-	startAuthUC := usecase.NewStartAuthorization(clientRepo, authCodeRepo)
-	refreshTokenUC := usecase.NewRefreshToken(tokenRepo, clientRepo, tokenService)
+	issueTokenUC := iusecase.NewIssueToken(clientRepo, tokenRepo, tokenService)
+	startAuthUC := iusecase.NewStartAuthorization(clientRepo, authCodeRepo)
+	refreshTokenUC := iusecase.NewRefreshToken(tokenRepo, clientRepo, tokenService)
 	// userLoginUC := usecase.NewUserLogin(userRepo, authService) // Would be used by /authorize when password login form is added.
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
-	})
 
 	issuer := "http://localhost:8080" // TODO: derive from config / request / X-Forwarded headers
-	mux.Handle("/.well-known/openid-configuration", &h.DiscoveryHandler{Issuer: issuer})
-	mux.Handle("/authorize", &h.AuthorizeHandler{Start: startAuthUC, Sessions: sessionRepo})
-	mux.Handle("/register", &h.RegisterHandler{UC: registerUC})
-	mux.Handle("/login", &h.LoginHandler{LoginUC: loginUC, SessionUC: createSessionUC})
-	mux.Handle("/jwks.json", &h.JWKSHandler{Keys: keyRotation})
-	mux.Handle("/token", &h.TokenHandler{Issue: issueTokenUC, Refresh: refreshTokenUC, Codes: authCodeRepo})
-	mux.Handle("/userinfo", &h.UserInfoHandler{Users: userRepo, TokenService: tokenService})
-	mux.Handle("/revoke", &h.RevokeHandler{Tokens: tokenRepo})
+	// Register routes using central wiring helper
+	uc := du.UsecaseWrapper{
+		StartAuth:    startAuthUC,
+		IssueToken:   issueTokenUC,
+		Refresh:      refreshTokenUC,
+		CreateSess:   createSessionUC,
+		UserLogin:    loginUC,
+		RegisterUser: registerUC,
+	}
+	svcs := dsvc.ServiceWrapper{AuthService: bcryptAuth, TokenService: tokenService, KeyRotationService: keyRotation}
+	route.RegisterRoutes(mux, uc, authCodeRepo, sessionRepo, userRepo, tokenRepo, svcs, issuer)
 
 	// Debug endpoint to confirm which repository implementations are active.
 	mux.HandleFunc("/debug/repos", func(w http.ResponseWriter, r *http.Request) {

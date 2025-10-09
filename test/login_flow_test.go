@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	h "github.com/RanguraGIT/sso/delivery/http/handler"
+	du "github.com/RanguraGIT/sso/domain/usecase"
+	h "github.com/RanguraGIT/sso/infrastructure/delivery/http/handler"
 	"github.com/RanguraGIT/sso/infrastructure/persistence"
 	mysqlrepo "github.com/RanguraGIT/sso/infrastructure/repository/mysql"
 	iservice "github.com/RanguraGIT/sso/infrastructure/service"
@@ -33,7 +34,7 @@ func TestLoginFlow(t *testing.T) {
 	bcryptAuth := iservice.NewBcryptAuthService(userRepo, 10).(interface{ HashPassword(string) (string, error) })
 	registerUC := usecase.NewRegisterUser(userRepo, bcryptAuth)
 	email := "login-user-" + time.Now().UTC().Format("20060102150405.000") + "@example.com"
-	if _, err := registerUC.Execute(ctx, usecase.RegisterUserInput{Email: email, Password: "secretpass"}); err != nil {
+	if _, err := registerUC.Execute(ctx, du.RegisterUserInput{Email: email, Password: "secretpass"}); err != nil {
 		t.Fatalf("register user: %v", err)
 	}
 

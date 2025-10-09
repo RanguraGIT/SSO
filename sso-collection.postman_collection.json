@@ -9,6 +9,23 @@
 
     {
       "name": "01 - Discovery",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Discovery returned 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Discovery contains issuer and jwks_uri', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.issuer).to.be.a('string');",
+              "  pm.expect(json.jwks_uri).to.be.a('string');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
@@ -17,6 +34,23 @@
     },
     {
       "name": "02 - JWKS",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('JWKS returned 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('JWKS contains keys array', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.keys).to.be.an('array');",
+              "  pm.expect(json.keys.length).to.be.above(0);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [],
@@ -25,11 +59,42 @@
     },
     {
       "name": "03 - Health",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Health returned 200', function () { pm.response.to.have.status(200); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": { "method": "GET", "url": "{{base_url}}/healthz" }
     },
 
     {
       "name": "04 - Register User",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Register returned 200/201 or already-registered', function () {",
+              "  if (pm.response.code === 200 || pm.response.code === 201) {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200,201]);",
+              "  } else {",
+              "    pm.expect(pm.response.code).to.eql(400);",
+              "    var json = {};",
+              "    try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "    pm.expect(json.error).to.match(/already registered/i);",
+              "  }",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -48,13 +113,17 @@
           "listen": "test",
           "script": {
             "exec": [
+              "pm.test('Login returned 200', function () { pm.response.to.have.status(200); });",
               "const sid = pm.cookies.get('sid');",
-              "if (sid) {",
-              "  pm.environment.set('sid', sid);",
-              "  console.log('Stored sid cookie ->', sid);",
-              "} else {",
-              "  console.warn('No sid cookie in response');",
-              "}"
+              "pm.test('sid cookie present', function () {",
+              "  if (sid) {",
+              "    pm.environment.set('sid', sid);",
+              "    console.log('Stored sid cookie ->', sid);",
+              "    pm.expect(sid).to.be.a('string');",
+              "  } else {",
+              "    pm.expect.fail('No sid cookie in response');",
+              "  }",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -78,9 +147,17 @@
           "listen": "test",
           "script": {
             "exec": [
+              "pm.test('Authorize returned 200', function () { pm.response.to.have.status(200); });",
               "let data = {};",
               "try { data = pm.response.json(); } catch(e) {}",
-              "if (data.code) { pm.environment.set('code', data.code); }",
+              "pm.test('Authorization code present', function () {",
+              "  if (data && data.code) {",
+              "    pm.environment.set('code', data.code);",
+              "    pm.expect(data.code).to.be.a('string');",
+              "  } else {",
+              "    pm.expect.fail('No authorization code in response');",
+              "  }",
+              "});",
               "if (data.state) { console.log('State:', data.state); }"
             ],
             "type": "text/javascript"
@@ -133,9 +210,17 @@
           "listen": "test",
           "script": {
             "exec": [
+              "pm.test('Authorize (PKCE) returned 200', function () { pm.response.to.have.status(200); });",
               "let data = {};",
               "try { data = pm.response.json(); } catch(e) {}",
-              "if (data.code) { pm.environment.set('code_pkce', data.code); }"
+              "pm.test('PKCE authorization code present', function () {",
+              "  if (data && data.code) {",
+              "    pm.environment.set('code_pkce', data.code);",
+              "    pm.expect(data.code).to.be.a('string');",
+              "  } else {",
+              "    pm.expect.fail('No PKCE authorization code in response');",
+              "  }",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -168,11 +253,20 @@
           "listen": "test",
           "script": {
             "exec": [
+              "pm.test('Token endpoint returned 200', function () { pm.response.to.have.status(200); });",
               "let data = {};",
               "try { data = pm.response.json(); } catch(e) {}",
-              "if (data.access_token) pm.environment.set('access_token', data.access_token);",
-              "if (data.refresh_token) pm.environment.set('refresh_token', data.refresh_token);",
-              "if (data.id_token) pm.environment.set('id_token', data.id_token);"
+              "pm.test('Access and refresh tokens present', function () {",
+              "  if (data.access_token && data.refresh_token) {",
+              "    pm.environment.set('access_token', data.access_token);",
+              "    pm.environment.set('refresh_token', data.refresh_token);",
+              "    if (data.id_token) pm.environment.set('id_token', data.id_token);",
+              "    pm.expect(data.access_token).to.be.a('string');",
+              "    pm.expect(data.refresh_token).to.be.a('string');",
+              "  } else {",
+              "    pm.expect.fail('access_token or refresh_token missing');",
+              "  }",
+              "});"
             ],
             "type": "text/javascript"
           }
@@ -269,6 +363,22 @@
 
     {
       "name": "11 - Refresh Token (Reuse Detection - Expect Error)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Expected error on refresh reuse', function () { pm.expect(pm.response.code).to.not.eql(200); });",
+              "pm.test('Error response contains error field', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.error).to.be.a('string');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
@@ -286,6 +396,22 @@
 
     {
       "name": "12 - Revoke (Refresh Token)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Revoke returned 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('Response contains revoked true', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.revoked).to.eql(true);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
@@ -301,6 +427,22 @@
 
     {
       "name": "13 - UserInfo (Placeholder)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('UserInfo returned 200', function () { pm.response.to.have.status(200); });",
+              "pm.test('UserInfo contains sub or email', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.sub || json.email).to.exist;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "GET",
         "header": [
@@ -312,6 +454,22 @@
 
     {
       "name": "14 - Invalid Grant Example",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Invalid grant returns error', function () { pm.expect(pm.response.code).to.not.eql(200); });",
+              "pm.test('Response contains error field', function () {",
+              "  var json = {};",
+              "  try { json = pm.response.json(); } catch (e) { pm.expect.fail('Response not JSON'); }",
+              "  pm.expect(json.error).to.be.a('string');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],

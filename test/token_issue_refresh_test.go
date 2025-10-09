@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/RanguraGIT/sso/domain/entity"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 	"github.com/RanguraGIT/sso/infrastructure/persistence"
 	mysqlrepo "github.com/RanguraGIT/sso/infrastructure/repository/mysql"
 	iservice "github.com/RanguraGIT/sso/infrastructure/service"
@@ -34,7 +35,7 @@ func TestIssueAndRefreshRotation(t *testing.T) {
 	issue := usecase.NewIssueToken(clients, tokens, jwtSvc)
 	refreshUC := usecase.NewRefreshToken(tokens, clients, jwtSvc)
 
-	out, err := issue.Execute(context.Background(), usecase.IssueTokenInput{
+	out, err := issue.Execute(context.Background(), du.IssueTokenInput{
 		UserID: user.ID, ClientID: client.ClientID, Scope: "openid profile", Audience: []string{client.ClientID}, Issuer: "http://issuer", AccessTTL: time.Minute, RefreshTTL: time.Hour,
 	})
 	if err != nil {
@@ -57,7 +58,7 @@ func TestIssueAndRefreshRotation(t *testing.T) {
 
 	// Perform refresh
 	time.Sleep(1100 * time.Millisecond) // ensure new iat second so JWT differs
-	refOut, err := refreshUC.Execute(context.Background(), usecase.RefreshTokenInput{RefreshTokenID: rot, Issuer: "http://issuer", Audience: []string{client.ClientID}, AccessTTL: time.Minute, RefreshTTL: time.Hour})
+	refOut, err := refreshUC.Execute(context.Background(), du.RefreshTokenInput{RefreshTokenID: rot, Issuer: "http://issuer", Audience: []string{client.ClientID}, AccessTTL: time.Minute, RefreshTTL: time.Hour})
 	if err != nil {
 		t.Fatalf("refresh execute: %v", err)
 	}

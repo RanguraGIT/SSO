@@ -8,16 +8,10 @@ import (
 
 	"github.com/RanguraGIT/sso/domain/entity"
 	"github.com/RanguraGIT/sso/domain/repository"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 )
 
 type PasswordHasher interface{ HashPassword(string) (string, error) }
-
-type RegisterUserInput struct {
-	Email    string
-	Password string
-}
-
-type RegisterUserOutput struct{ UserID string }
 
 type RegisterUser struct {
 	users  repository.UserRepository
@@ -28,7 +22,7 @@ func NewRegisterUser(users repository.UserRepository, hasher PasswordHasher) *Re
 	return &RegisterUser{users: users, hasher: hasher}
 }
 
-func (uc *RegisterUser) Execute(ctx context.Context, in RegisterUserInput) (*RegisterUserOutput, error) {
+func (uc *RegisterUser) Execute(ctx context.Context, in du.RegisterUserInput) (*du.RegisterUserOutput, error) {
 	email := strings.TrimSpace(strings.ToLower(in.Email))
 	if email == "" || in.Password == "" {
 		return nil, errors.New("email and password required")
@@ -54,5 +48,5 @@ func (uc *RegisterUser) Execute(ctx context.Context, in RegisterUserInput) (*Reg
 	if err := uc.users.Create(ctx, u); err != nil {
 		return nil, err
 	}
-	return &RegisterUserOutput{UserID: u.ID.String()}, nil
+	return &du.RegisterUserOutput{UserID: u.ID.String()}, nil
 }

@@ -6,17 +6,8 @@ import (
 
 	"github.com/RanguraGIT/sso/domain/repository"
 	dservice "github.com/RanguraGIT/sso/domain/service"
-	"github.com/google/uuid"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 )
-
-type UserLoginInput struct {
-	Email    string
-	Password string
-}
-
-type UserLoginOutput struct {
-	UserID uuid.UUID
-}
 
 type UserLogin struct {
 	users repository.UserRepository
@@ -27,7 +18,7 @@ func NewUserLogin(users repository.UserRepository, auth dservice.AuthService) *U
 	return &UserLogin{users: users, auth: auth}
 }
 
-func (uc *UserLogin) Execute(ctx context.Context, in UserLoginInput) (*UserLoginOutput, error) {
+func (uc *UserLogin) Execute(ctx context.Context, in du.UserLoginInput) (*du.UserLoginOutput, error) {
 	u, err := uc.users.GetByEmail(ctx, in.Email)
 	if err != nil {
 		return nil, err
@@ -42,5 +33,5 @@ func (uc *UserLogin) Execute(ctx context.Context, in UserLoginInput) (*UserLogin
 	if !ok {
 		return nil, errors.New("invalid credentials")
 	}
-	return &UserLoginOutput{UserID: u.ID}, nil
+	return &du.UserLoginOutput{UserID: u.ID}, nil
 }

@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/RanguraGIT/sso/domain/repository"
-	"github.com/RanguraGIT/sso/infrastructure/usecase"
+	"github.com/RanguraGIT/sso/domain/usecase"
 	"github.com/google/uuid"
 )
 
 type TokenHandler struct {
-	Issue   *usecase.IssueToken
-	Refresh *usecase.RefreshToken
+	Issue   usecase.IssueToken
+	Refresh usecase.RefreshToken
 	Codes   repository.AuthorizationCodeRepository
 }
 

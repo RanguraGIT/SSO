@@ -13,13 +13,12 @@ import (
 	"testing"
 	"time"
 
-	h "github.com/RanguraGIT/sso/delivery/http/handler"
 	"github.com/RanguraGIT/sso/domain/entity"
+	h "github.com/RanguraGIT/sso/infrastructure/delivery/http/handler"
 	"github.com/RanguraGIT/sso/infrastructure/persistence"
 	mysqlrepo "github.com/RanguraGIT/sso/infrastructure/repository/mysql"
 	iservice "github.com/RanguraGIT/sso/infrastructure/service"
 	"github.com/RanguraGIT/sso/infrastructure/usecase"
-
 )
 
 // TestEndToEndAuthorizationCodeFlow covers: register (seed), login (session), authorize -> code, token exchange -> id_token, refresh -> new pair, reuse detection.

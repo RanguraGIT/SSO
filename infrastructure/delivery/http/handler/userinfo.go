@@ -69,9 +69,6 @@ func (h *UserInfoHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		response["email_verified"] = false
 	}
 
-	// Add optional fields based on scopes (if we had scope checking)
-	// For now, include basic profile info if available
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }

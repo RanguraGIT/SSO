@@ -8,28 +8,9 @@ import (
 	"github.com/RanguraGIT/sso/domain/entity"
 	"github.com/RanguraGIT/sso/domain/repository"
 	dservice "github.com/RanguraGIT/sso/domain/service"
+	du "github.com/RanguraGIT/sso/domain/usecase"
 	"github.com/RanguraGIT/sso/domain/vo"
-	"github.com/google/uuid"
 )
-
-type IssueTokenInput struct {
-	UserID     uuid.UUID
-	ClientID   string
-	Scope      string
-	Audience   []string
-	Issuer     string
-	AccessTTL  time.Duration
-	RefreshTTL time.Duration
-}
-
-type IssueTokenOutput struct {
-	AccessToken  string
-	RefreshToken string
-	ExpiresIn    int64
-	Scope        string
-	TokenType    string
-	IDToken      string
-}
 
 type IssueToken struct {
 	clients      repository.ClientRepository
@@ -41,7 +22,7 @@ func NewIssueToken(clients repository.ClientRepository, tokens repository.TokenR
 	return &IssueToken{clients: clients, tokens: tokens, tokenService: tokenService}
 }
 
-func (uc *IssueToken) Execute(ctx context.Context, in IssueTokenInput) (*IssueTokenOutput, error) {
+func (uc *IssueToken) Execute(ctx context.Context, in du.IssueTokenInput) (*du.IssueTokenOutput, error) {
 	c, err := uc.clients.GetByClientID(ctx, in.ClientID)
 	if err != nil {
 		return nil, err
@@ -84,7 +65,7 @@ func (uc *IssueToken) Execute(ctx context.Context, in IssueTokenInput) (*IssueTo
 		meta.ClientPublicID = c.ClientID
 		_ = uc.tokens.Store(ctx, meta)
 	}
-	return &IssueTokenOutput{
+	return &du.IssueTokenOutput{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		ExpiresIn:    int64(res.AccessExpiresAt.Sub(now).Seconds()),
